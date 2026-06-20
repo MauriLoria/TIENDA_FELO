@@ -597,12 +597,7 @@ def enviar_pedido():
 
         numero_pedido = obtener_numero_pedido()
         fecha_hora    = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        with open("logs_pedidos.txt","a", encoding="utf-8") as f:
-
-            fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-            f.write(f"{fecha};{numero_pedido};{email};{len(items_validados)};{total}\n")
-
+        
         # ── Armar cuerpo del email ──────────────────────────────────────────
         # CODIGO(10) DESCRIPCION(35) CANT(6) PRECIO(12) PROMO(8) DETALLE(20) = 91
         SEP = "-" * 91
@@ -643,6 +638,12 @@ def enviar_pedido():
                     subtotal *= item["bonifcant"]
 
             total += subtotal
+
+            with open("logs_pedidos.txt","a", encoding="utf-8") as f:
+
+                fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                f.write(f"{fecha};{numero_pedido};{email};"f"{len(items_validados)};{total:.2f}\n")
 
             # PROMO/DETALLE: solo si el cliente tildó el checkbox "Promo" en el carrito
             promo_txt = ""
@@ -734,7 +735,7 @@ def enviar_pedido():
                         correo_cliente["From"] = EMAIL_REMITENTE
                         correo_cliente["To"]   = email_cliente
 
-                    servidor.send_message(correo_cliente)
+                        servidor.send_message(correo_cliente)
 
             except Exception as e:
 
@@ -750,7 +751,6 @@ def enviar_pedido():
             "ok": True,
             "numero_pedido": numero_pedido,
             "mensaje": f"Pedido Nro {numero_pedido} generado correctamente.",
-            "preview": mensaje_preview
         })
 
     except Exception as e:
