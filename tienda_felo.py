@@ -322,6 +322,11 @@ def login():
 
     usuarios = cargar_usuarios()
 
+    print(f"[DEBUG LOGIN] documento_ingresado={documento!r} | "
+          f"NROCUIT_dbf={cliente['NROCUIT']!r} | cuit_normalizado={cuit!r} | "
+          f"existe_en_usuarios={cuit in usuarios} | "
+          f"claves_usuarios={list(usuarios.keys())}")
+
     if cuit not in usuarios:
 
         return redirect(
