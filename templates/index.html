@@ -1142,13 +1142,6 @@ function finalizarPedido(){
             item.cantidad + "\n";
     });
 
-    alert(
-        "SE ENVIARÁ EL SIGUIENTE PEDIDO\n\n" +
-        detalle +
-        "\nObservaciones:\n" +
-        observaciones
-    );
-
     fetch("/enviar_pedido",{
 
         method:"POST",
