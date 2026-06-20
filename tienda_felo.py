@@ -280,7 +280,7 @@ def cargar_catalogo() -> list[dict]:
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB máximo por request
 app.secret_key = "felo_2026"
-CLIENTES_DBF = r"/Distribuidora/FELO_3/CLIENTES.DBF"
+CLIENTES_DBF = "clientes.dbf"
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
