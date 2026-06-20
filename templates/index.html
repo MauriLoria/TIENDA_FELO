@@ -1172,9 +1172,10 @@ function finalizarPedido(){
                 "Debe iniciar sesión para enviar pedidos.");
             window.location.href = "/login";
             return;}
-
-        console.log(data.mensaje);
-
+        if(data.preview){
+            mostrarPedido(data.preview);}
+        else{
+            mostrarPedido(data.mensaje);}
         if(data.ok){
                 // Enviar resumen por WhatsApp al vendedor
             let mensajeWA = data.preview;
