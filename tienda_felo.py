@@ -16,10 +16,15 @@ from werkzeug.security import (
 # ─────────────────────────────────────────────
 # CONFIGURACIÓN — leer de variables de entorno
 # ─────────────────────────────────────────────
-ARTICULO_DBF      = os.environ.get("ARTICULO_DBF",      "/MegaMauri/AFA/ARTICULO.DBF")
-CARPETA_IMAGENES  = os.environ.get("CARPETA_IMAGENES",  "/MegaMauri/DISTRIBUIDORA/Catalogo/DIBUJOS_WEBP")
-CARPETA_VIDEOS    = os.environ.get("CARPETA_VIDEOS",    "/MegaMauri/Videos")
-OFERTAS_DBF       = os.environ.get("OFERTAS_DBF",    "/MegaMauri/AFA/OFERTAS.DBF")
+ARTICULO_DBF = "articulo.dbf"
+OFERTAS_DBF = "ofertas.dbf"
+CLIENTES_DBF = "clientes.dbf"
+CARPETA_IMAGENES = "Imagenes"
+CARPETA_VIDEOS = "videos"
+#ARTICULO_DBF      = os.environ.get("ARTICULO_DBF",      "/MegaMauri/AFA/ARTICULO.DBF")
+#CARPETA_IMAGENES  = os.environ.get("CARPETA_IMAGENES",  "/MegaMauri/DISTRIBUIDORA/Catalogo/DIBUJOS_WEBP")
+#CARPETA_VIDEOS    = os.environ.get("CARPETA_VIDEOS",    "/MegaMauri/Videos")
+#OFERTAS_DBF       = os.environ.get("OFERTAS_DBF",    "/MegaMauri/AFA/OFERTAS.DBF")
 EMAIL_REMITENTE   = os.environ.get("EMAIL_REMITENTE",   "acerosfelodistribuidora@gmail.com")
 EMAIL_PASSWORD    = os.environ.get("EMAIL_PASSWORD")          # ← nunca hardcodeada
 EMAIL_DESTINO     = os.environ.get("EMAIL_DESTINO",     "acerosfelodistribuidora@gmail.com")
@@ -796,13 +801,25 @@ def inicio():
         usuario=usuario
     )        
 # ─────────────────────────────────────────────
-# INICIO
+# CARGA INICIAL
 # ─────────────────────────────────────────────
+
+print("Cargando ofertas...")
+cargar_ofertas()
+
+print("Cargando catálogo...")
+CATALOGO = cargar_catalogo()
+
+CATALOGO_POR_CODIGO = {
+    art["codigo"].upper(): art
+    for art in CATALOGO
+}
+
+print(f"Artículos cargados: {len(CATALOGO)}")
+
+# ─────────────────────────────────────────────
+# INICIO LOCAL
+# ─────────────────────────────────────────────
+
 if __name__ == "__main__":
-    print("Cargando ofertas...")
-    cargar_ofertas()
-    print("Cargando catálogo...")
-    CATALOGO = cargar_catalogo()
-    CATALOGO_POR_CODIGO = {art["codigo"].upper(): art for art in CATALOGO}
-    print(f"Artículos cargados: {len(CATALOGO)}")
     app.run(debug=FLASK_DEBUG)
