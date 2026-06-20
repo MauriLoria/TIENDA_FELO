@@ -531,9 +531,6 @@ def enviar_pedido():
                 "mensaje": "Debe iniciar sesión para enviar pedidos."
             })
         datos        = request.get_json(force=True)
-        print("\n===== DATOS RECIBIDOS =====")
-        print(json.dumps(datos, indent=4, ensure_ascii=False))
-        print("==========================\n")
         email        = datos.get("email", "").strip()
         observaciones = datos.get("observaciones", "").strip()
         carrito      = datos.get("carrito", {})

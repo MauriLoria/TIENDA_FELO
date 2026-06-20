@@ -847,6 +847,11 @@ body{
      padding:20px;
      overflow:auto;">
 
+    <button onclick="imprimirPedido()"
+            style="float:right;margin-right:10px;">
+        Imprimir
+    </button>
+
     <button onclick="cerrarPedido()"
             style="float:right">
         Cerrar
@@ -905,6 +910,84 @@ document.addEventListener("click", function(e){
     }
 
 });
+
+function mostrarPedido(texto){
+
+    document.getElementById(
+        "contenidoPedido"
+    ).innerHTML = `
+        <div style="text-align:left">
+            <img
+                src="/imagenes/LOGOFELO.webp"
+                style="width:120px;height:auto;">
+        </div>
+
+        <pre style="
+            white-space:pre;
+            font-family:Courier New;
+            font-size:14px;
+            margin-top:10px;
+        ">${texto}</pre>
+    `;
+
+    document.getElementById(
+        "visorPedido"
+    ).style.display = "block";
+}
+
+function imprimirPedido(){
+
+    let contenido =
+        document.getElementById("contenidoPedido").textContent;
+
+    let ventana = window.open("", "_blank");
+
+    ventana.document.write(`
+        <html>
+        <head>
+            <title> </title>
+
+            <style>
+
+                body{
+                    font-family:Courier New, monospace;
+                    margin:20px;
+                }
+
+                .logo{
+                    text-align:left;
+                    margin-bottom:20px;
+                }
+
+                pre{
+                    white-space:pre;
+                    font-family:Courier New, monospace;
+                }
+
+            </style>
+
+        </head>
+
+        <body>
+
+            <div class="logo">
+                <img src="/imagenes/LOGOFELO.webp" height="80">
+            </div>
+
+            <pre>${contenido}</pre>
+
+        </body>
+        </html>
+    `);
+
+    ventana.document.close();
+
+    ventana.focus();
+
+    setTimeout(function(){
+        ventana.print();
+    },500);
+}
 
 function guardarMiCuenta(){
 
@@ -1101,17 +1184,6 @@ function consultaWhatsapp(){
 
 function cambiarPromo(codigo, valor){
     carrito[codigo].promo = valor;
-}
-
-function mostrarPedido(texto){
-
-    document.getElementById(
-        "contenidoPedido"
-    ).textContent = texto;
-
-    document.getElementById(
-        "visorPedido"
-    ).style.display = "block";
 }
 
 function cerrarPedido(){
