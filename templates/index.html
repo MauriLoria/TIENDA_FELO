@@ -1214,6 +1214,11 @@ function finalizarPedido(){
             item.cantidad + "\n";
     });
 
+    // Abrimos la ventana de WhatsApp ANTES del fetch (vacía), porque los
+    // navegadores bloquean window.open si no es resultado directo de un
+    // click. Una vez que llega la respuesta, la redirigimos a la URL real.
+    let ventanaWA = window.open("", "_blank");
+
     fetch("/enviar_pedido",{
 
         method:"POST",
@@ -1230,9 +1235,8 @@ function finalizarPedido(){
     .then(r=>r.json())
     .then(data=>{
 
-        console.log(data);
-
         if(data.requiere_login){
+            if(ventanaWA){ ventanaWA.close(); }
             alert(
                 "Debe iniciar sesión para enviar pedidos.");
             window.location.href = "/login";
@@ -1242,28 +1246,31 @@ function finalizarPedido(){
         else{
             mostrarPedido(data.mensaje);}
         if(data.ok){
-                // Enviar resumen por WhatsApp al vendedor
+            // Enviar resumen por WhatsApp al vendedor (en pestaña nueva,
+            // para no perder la vista del pedido en pantalla)
             let mensajeWA = data.preview;
 
             let urlWA =
                 "https://wa.me/" + whatsappContacto +
                 "?text=" + encodeURIComponent(mensajeWA);
 
-            console.log(mensajeWA);
-            console.log(urlWA);
-            console.log("Largo mensaje:", mensajeWA.length);
-            console.log(urlWA.length);
-            console.log(data);
-            console.log(data.preview);
-            console.log(data.numero_pedido);
+            if(ventanaWA){
+                ventanaWA.location.href = urlWA;
+            } else {
+                // El navegador bloqueó el popup: abrimos como último recurso
+                window.open(urlWA, "_blank");
+            }
 
-            window.location.href = urlWA;
             carrito = {};
             actualizarCarrito();
+        } else if(ventanaWA){
+            ventanaWA.close();
         }
     })
         
     .catch(error => {
+
+        if(ventanaWA){ ventanaWA.close(); }
 
         alert("Error al enviar el pedido");
 
