@@ -40,6 +40,20 @@ CATALOGO: list[dict] = []
 CATALOGO_POR_CODIGO: dict[str, dict] = {}   # para validar precios en el servidor
 _OFERTAS: dict[str, object] = {}
 
+def registrar_busqueda(texto, resultados):
+
+    with open(
+        "logs_busquedas.txt",
+        "a",
+        encoding="utf-8"
+    ) as f:
+
+        fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        f.write(
+            f"{fecha};{texto};{resultados}\n"
+        )
+
 def cargar_ofertas():
 
     global _OFERTAS
@@ -501,6 +515,8 @@ def buscar():
 
         resultados.append(prod)
 
+    registrar_busqueda( texto, len(resultados))
+
     return jsonify(resultados[:100])
 
 # ── Pedido ──────────────────────────────────
@@ -581,6 +597,11 @@ def enviar_pedido():
 
         numero_pedido = obtener_numero_pedido()
         fecha_hora    = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        with open("logs_pedidos.txt","a", encoding="utf-8") as f:
+
+            fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            f.write(f"{fecha};{numero_pedido};{email};{len(items_validados)};{total}\n")
 
         # ── Armar cuerpo del email ──────────────────────────────────────────
         # CODIGO(10) DESCRIPCION(35) CANT(6) PRECIO(12) PROMO(8) DETALLE(20) = 91
@@ -769,7 +790,7 @@ def inicio():
 
     productos = random.sample(
         CATALOGO,
-        min(60, len(CATALOGO))
+        min(20, len(CATALOGO))
     )
 
     productos_mostrar = []
