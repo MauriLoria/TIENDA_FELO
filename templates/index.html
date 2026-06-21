@@ -55,13 +55,21 @@ body{
     width:32px;
     height:32px;
     border-radius:50%;
-    background:#28a745;
-    color:white;
+    background:white;
+    border:2px solid #28a745;
+    color:#28a745;
     display:flex;
     align-items:center;
     justify-content:center;
     font-size:18px;
     cursor:pointer;
+    flex-shrink:0;
+}
+
+.icono-usuario svg{
+    width:18px;
+    height:18px;
+    fill:#28a745;
 }
 
 .icono-usuario:hover{
@@ -85,8 +93,17 @@ body{
     font-weight:bold;
 }
 
+.nombre-cliente{
+    font-weight:bold;
+    color:#28a745;
+    white-space:nowrap;
+}
+
 .menu-usuario{
     position:relative;
+    display:flex;
+    align-items:center;
+    gap:10px;
 }
 
 .menu-desplegable{
@@ -516,8 +533,12 @@ body{
 
     <div class="menu-usuario">
 
+        <span class="nombre-cliente">{{ usuario.cliente }}</span>
+
         <div class="icono-usuario" onclick="toggleMenuUsuario()">
-            👤
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.3 0-9.8 1.6-9.8 4.9v2.4h19.6v-2.4c0-3.3-6.5-4.9-9.8-4.9z"/>
+            </svg>
         </div>
 
         <div id="menuUsuario" class="menu-desplegable">
@@ -593,7 +614,9 @@ body{
 {% else %}
 
     <div class="icono-usuario">
-        👤
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.3 0-9.8 1.6-9.8 4.9v2.4h19.6v-2.4c0-3.3-6.5-4.9-9.8-4.9z"/>
+        </svg>
     </div>
 
     <a href="/login">
@@ -1214,11 +1237,6 @@ function finalizarPedido(){
             item.cantidad + "\n";
     });
 
-    // Abrimos la ventana de WhatsApp ANTES del fetch (vacía), porque los
-    // navegadores bloquean window.open si no es resultado directo de un
-    // click. Una vez que llega la respuesta, la redirigimos a la URL real.
-    let ventanaWA = window.open("", "_blank");
-
     fetch("/enviar_pedido",{
 
         method:"POST",
@@ -1235,8 +1253,9 @@ function finalizarPedido(){
     .then(r=>r.json())
     .then(data=>{
 
+        console.log(data);
+
         if(data.requiere_login){
-            if(ventanaWA){ ventanaWA.close(); }
             alert(
                 "Debe iniciar sesión para enviar pedidos.");
             window.location.href = "/login";
@@ -1246,31 +1265,28 @@ function finalizarPedido(){
         else{
             mostrarPedido(data.mensaje);}
         if(data.ok){
-            // Enviar resumen por WhatsApp al vendedor (en pestaña nueva,
-            // para no perder la vista del pedido en pantalla)
+                // Enviar resumen por WhatsApp al vendedor
             let mensajeWA = data.preview;
 
             let urlWA =
                 "https://wa.me/" + whatsappContacto +
                 "?text=" + encodeURIComponent(mensajeWA);
 
-            if(ventanaWA){
-                ventanaWA.location.href = urlWA;
-            } else {
-                // El navegador bloqueó el popup: abrimos como último recurso
-                window.open(urlWA, "_blank");
-            }
+            console.log(mensajeWA);
+            console.log(urlWA);
+            console.log("Largo mensaje:", mensajeWA.length);
+            console.log(urlWA.length);
+            console.log(data);
+            console.log(data.preview);
+            console.log(data.numero_pedido);
 
+            window.location.href = urlWA;
             carrito = {};
             actualizarCarrito();
-        } else if(ventanaWA){
-            ventanaWA.close();
         }
     })
         
     .catch(error => {
-
-        if(ventanaWA){ ventanaWA.close(); }
 
         alert("Error al enviar el pedido");
 
