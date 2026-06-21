@@ -771,6 +771,11 @@ def inicio():
         if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))
     ]
 
+    # Códigos de producto que tienen imagen (nombre de archivo sin extensión)
+    codigos_con_imagen = {
+        os.path.splitext(f)[0].upper() for f in imagenes
+    }
+
     videos = [
         f for f in os.listdir(CARPETA_VIDEOS)
         if f.lower().endswith(".mp4")
@@ -786,9 +791,18 @@ def inicio():
         len(videos)
     )
 
+    catalogo_con_imagen = [
+        art for art in CATALOGO
+        if art["codigo"].upper() in codigos_con_imagen
+    ]
+
+    # Fallback: si ningún producto tiene imagen disponible, mostramos
+    # del catálogo completo para no dejar la página sin productos.
+    base_productos = catalogo_con_imagen if catalogo_con_imagen else CATALOGO
+
     productos = random.sample(
-        CATALOGO,
-        min(20, len(CATALOGO))
+        base_productos,
+        min(20, len(base_productos))
     )
 
     productos_mostrar = []
