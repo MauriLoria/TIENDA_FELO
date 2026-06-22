@@ -524,12 +524,12 @@ def buscar():
 def enviar_pedido():
 
     try:
-        if "numero_cliente" not in session:
+        tipo = session.get("tipo", "minorista")
+        if tipo == "mayorista" and "numero_cliente" not in session:
             return jsonify({
                 "ok": False,
                 "requiere_login": True,
-                "mensaje": "Debe iniciar sesión para enviar pedidos."
-            })
+                "mensaje": "Debe iniciar sesión."})
         datos        = request.get_json(force=True)
         email        = datos.get("email", "").strip()
         observaciones = datos.get("observaciones", "").strip()
@@ -555,7 +555,7 @@ def enviar_pedido():
                     "codigo": codigo.strip().upper(),
                     "nombre": item.get("nombre", ""),
                     "unidad": item.get("unid", ""),
-                    "cantidad": int(item.get("cantidad", 1)),
+                    "cantidad": float(item.get("cantidad", 1)),
                     "precio": 0.0,
                     "bulto": 0.0,
                     "bonifcant": 0.0,

@@ -257,26 +257,33 @@ body{
 .col-descripcion{
     text-align:left;
     font-size:12px;
-    width:55%;
+    width:45%;
     white-space:normal;
     word-wrap:break-word;
 }
 
 .col-precio{
-    width:12%;
+    width:20%;
     text-align:right;
-    padding-right:15px;
+    padding-right: 20px;
 }
 
 .col-cantidad{
-    width:18%;
-    text-align:center;
+    width:10%;
+    text-align:right;
+    padding-right: 25px;
+}
+
+.col-promo{
+    width:10%;
+    text-align:right;
+    padding-right:15px;
 }
 
 .col-subtotal{
     width:15%;
-    text-align:right;
-    padding-right:15px;
+    text-align: right;
+    padding-right:10px;
 }
 
 .cantidad{
@@ -285,7 +292,6 @@ body{
     align-items:center;
     gap:5px;
 }
-
 
 .cantidad button{
     width:24px;
@@ -699,19 +705,19 @@ body{
 
             <thead>
                 <tr>
-                    <th style="width:50%;text-align:left;">
+                    <th style="width:45%;text-align:left;">
                         Descripción
                     </th>
 
-                    <th style="width:15%;text-align:right;">
+                    <th style="width:20%;text-align:right;padding-left:55px;">
                         Precio
                     </th>
 
-                    <th style="width:18%;text-align:right;">
+                    <th style="width:10%;text-align:right;padding-left:30px;">
                         Cant.
                     </th>
 
-                    <th style="width:12%;text-align:right;">
+                    <th style="width:10%;text-align:right;padding-left:15px;">
                         Promo
                     </th>
 
@@ -1068,27 +1074,19 @@ function agregar(codigo, nombre, precio, unid, bulto, bonifcant, bonif, bulto_of
     actualizarCarrito();
     volverCarrito();}
 
-function cambiarCantidad(codigo, delta){
-
-    carrito[codigo].cantidad += delta;
-
-    if(carrito[codigo].cantidad <= 0){
-        delete carrito[codigo];
-    }
-
-    actualizarCarrito();
-}
-
 function editarCantidad(codigo, valor){
 
-    valor = parseInt(valor) || 1;
+    valor = parseFloat(valor);
 
-    if(valor <= 0){
-        delete carrito[codigo];
+    if(isNaN(valor)){
+        valor = 0;
     }
-    else{
-        carrito[codigo].cantidad = valor;
+
+    if(valor < 0){
+        valor = 0;
     }
+
+    carrito[codigo].cantidad = valor;
 
     actualizarCarrito();
 }
@@ -1137,37 +1135,22 @@ function actualizarCarrito(){
             <td class="col-descripcion">
                 ${item.nombre} (${item.unid})
             </td>
-
-            <td class="col-precio">
+            
+            <td class="col-precio" style="text-align:right">
                 $${item.precio.toFixed(2)}
             </td>
 
             <td class="col-cantidad">
-
-                <div class="cantidad">
-
-                    <button
-                        onclick="cambiarCantidad('${item.codigo}',-1)">
-                        -
-                    </button>
-
-                    <input
-                        type="number"
-                        value="${item.cantidad}"
-                        min="1"
-                        style="width:50px;text-align:center"
-                        onchange="editarCantidad('${item.codigo}',this.value)">
-
-                    <button
-                        onclick="cambiarCantidad('${item.codigo}',1)">
-                        +
-                    </button>
-
-                </div>
-
+                <input
+                    type="number"
+                    value="${item.cantidad}"
+                    min="0"
+                    step="1"
+                    style="width:60px;text-align:right;"
+                    onchange="editarCantidad('${item.codigo}',this.value)">
             </td>
 
-            <td style="text-align:center">
+            <td style="text-align:left">
 
                 <input
                     type="checkbox"
@@ -1176,7 +1159,7 @@ function actualizarCarrito(){
 
             </td>
 
-            <td class="col-subtotal">
+            <td class="col-subtotal" style="text-align:right">
                 $${subtotal.toFixed(2)}
             </td>
 
