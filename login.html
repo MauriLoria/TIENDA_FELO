@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<meta charset="utf-8">
+<title>Ingreso Clientes</title>
+
+<style>
+
+body{
+    font-family:Arial;
+    background:#f5f5f5;
+}
+
+.contenedor{
+    width:400px;
+    margin:50px auto;
+    background:white;
+    padding:25px;
+    border-radius:10px;
+    box-shadow:0 0 10px rgba(0,0,0,.15);
+}
+
+h2{
+    text-align:center;
+    margin-top:0;
+}
+
+input{
+    width:100%;
+    box-sizing:border-box;
+    padding:10px;
+    margin-top:5px;
+    margin-bottom:15px;
+    border:1px solid #ccc;
+    border-radius:5px;
+}
+
+button{
+    width:100%;
+    padding:12px;
+    background:#28a745;
+    color:white;
+    border:none;
+    border-radius:5px;
+    cursor:pointer;
+    font-size:16px;
+}
+
+button:hover{
+    opacity:.9;
+}
+
+.link{
+    text-align:center;
+    margin-top:15px;
+}
+
+.link a{
+    text-decoration:none;
+}
+
+.mensaje{
+    color:red;
+    text-align:center;
+    margin-bottom:10px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="contenedor">
+
+    <h2>Ingreso Clientes</h2>
+
+    {% if mensaje %}
+        <div class="mensaje">
+            {{ mensaje }}
+        </div>
+    {% endif %}
+
+    <form method="post" action="/login">
+
+        <label>
+            CUIT o DNI
+        </label>
+
+        <input
+            type="text"
+            name="documento"
+            required
+            autofocus>
+
+        <label>
+            Contraseña
+        </label>
+
+        <input
+            type="password"
+            name="password"
+            required>
+
+        <button type="submit">
+            Ingresar
+        </button>
+
+    </form>
+
+    <div class="link">
+        <a href="/primer_ingreso">
+            ¿Es tu primera vez? Registrate aquí
+        </a>
+    </div>
+
+    <br>
+
+    <div class="link">
+
+        <a href="/">
+            Volver a la tienda
+        </a>
+
+    </div>
+
+</div>
+
+</body>
+</html>
