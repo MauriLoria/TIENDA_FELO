@@ -830,7 +830,7 @@ def inicio():
         productos_mostrar.append(prod)
 
     usuario = datos_usuario()
-    print("USUARIO =", usuario)
+    #print("USUARIO =", usuario)
 
     return render_template(
         "index.html",
