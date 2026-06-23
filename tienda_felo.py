@@ -20,7 +20,7 @@ ARTICULO_DBF = "articulo.dbf"
 OFERTAS_DBF = "ofertas.dbf"
 CLIENTES_DBF = "clientes.dbf"
 CARPETA_IMAGENES = "Imagenes"
-CARPETA_VIDEOS = "Videos"
+#CARPETA_VIDEOS = "Videos"
 #ARTICULO_DBF      = os.environ.get("ARTICULO_DBF",      "/MegaMauri/AFA/ARTICULO.DBF")
 #CARPETA_IMAGENES  = os.environ.get("CARPETA_IMAGENES",  "/MegaMauri/DISTRIBUIDORA/Catalogo/DIBUJOS_WEBP")
 #CARPETA_VIDEOS    = os.environ.get("CARPETA_VIDEOS",    "/MegaMauri/Videos")
@@ -431,12 +431,15 @@ def crear_acceso():
 # ── Archivos estáticos ──────────────────────
 @app.route("/imagenes/<path:nombre>")
 def servir_imagen(nombre):
-    return send_from_directory(CARPETA_IMAGENES, nombre)
+    # max_age=86400 → el browser guarda la imagen 24 hs sin volver a pedirla
+    # Reduce significativamente el consumo de ancho de banda en Render
+    return send_from_directory(CARPETA_IMAGENES, nombre, max_age=86400)
 
-
-@app.route("/videos/<path:nombre>")
-def servir_video(nombre):
-    return send_from_directory(CARPETA_VIDEOS, nombre)
+# Ruta /videos eliminada — los videos ahora se sirven desde YouTube (cero consumo de banda)
+# Para reactivar temporalmente descomentá:
+# @app.route("/videos/<path:nombre>")
+# def servir_video(nombre):
+#     return send_from_directory(CARPETA_VIDEOS, nombre)
 
 @app.route("/guardar_micuenta", methods=["POST"])
 def guardar_micuenta():
@@ -776,20 +779,23 @@ def inicio():
         os.path.splitext(f)[0].upper() for f in imagenes
     }
 
-    videos = [
-        f for f in os.listdir(CARPETA_VIDEOS)
-        if f.lower().endswith(".mp4")
-    ]
-
     imagenes_random = random.sample(
         imagenes,
         min(50, len(imagenes))
     )
 
-    videos_random = random.sample(
-        videos,
-        len(videos)
-    )
+    videos_youtube = [
+        "RlVxIhmwXYg", # ID video 1
+        "EBNIIXtsU98", # ID video 2
+        "fOO7wa35nkk", # ID video 3
+        "B9RYNNBTNPo", # ID video 4
+        "lOLi3gxoyOM", # ID video 5
+        "cFDOL58oNNI", # ID video 6
+        "SYrq0FayWlc", # ID video 7
+        "O5y82FpWJE0", # ID video 8
+        "NiLcpsaW584", # ID video 9
+        "r14Sr9BniGk", # ID video 10
+    ]
 
     catalogo_con_imagen = [
         art for art in CATALOGO
@@ -829,7 +835,7 @@ def inicio():
     return render_template(
         "index.html",
         imagenes=imagenes_random,
-        videos=videos_random,
+        videos=videos_youtube,
         productos=productos_mostrar,
         usuario=usuario
     )        

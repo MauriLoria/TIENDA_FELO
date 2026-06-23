@@ -4,6 +4,8 @@
 <head>
 <meta charset="utf-8">
 <title>Tienda</title>
+<!-- YouTube IFrame API: necesario para detectar fin de video y rotar automáticamente -->
+<script src="https://www.youtube.com/iframe_api"></script>
 
 <style>
 
@@ -655,7 +657,7 @@ body{
 
         <div class="logos">
             <img
-                src="/Imagenes/FELO.webp"
+                src="/imagenes/FELO.webp"
                 class="logo-secundario"
                 alt="FELO">
         </div>
@@ -756,9 +758,8 @@ body{
 
     <div class="video">
 
-        <video id="videoPromo" autoplay muted controls>
-            <source src="/videos/{{ videos[0] }}" type="video/mp4">
-        </video>
+        <!-- Player de YouTube con API — rota automáticamente al terminar cada video -->
+        <div id="videoPromo" style="width:300px;height:360px;border-radius:8px;overflow:hidden;"></div>
 
     </div>
 
@@ -786,8 +787,8 @@ body{
      data-nombre="{{ p.nombre }}">
 
     <img
-        src="/Imagenes/{{ p.codigo }}.webp"
-        onerror="this.src='/Imagenes/sin_imagen.webp'"
+        src="/imagenes/{{ p.codigo }}.webp"
+        onerror="this.src='/imagenes/sin_imagen.webp'"
         alt="{{ p.nombre }}">
 
     <div class="producto-info">
@@ -1280,33 +1281,46 @@ function finalizarPedido(){
 
 }
 
-const videos = [
+// ══════════════════════════════════════════
+// ══════════════════════════════════════════
+// ROTACIÓN DE VIDEOS — YouTube IFrame API
+// Al terminar cada video arranca el siguiente
+// automáticamente. Para agregar/quitar videos
+// editá videos_youtube en tienda_felo.py
+// ══════════════════════════════════════════
+const VIDEOS_YOUTUBE = [
 {% for v in videos %}
-"/videos/{{ v }}",
+    "{{ v }}",
 {% endfor %}
 ];
 
-let indice = 0;
+let indiceVideo = 0;
+let ytPlayer = null;
 
-const reproductor =
-    document.getElementById("videoPromo");
-
-if(reproductor){
-
-    reproductor.addEventListener("ended", () => {
-
-        indice++;
-
-        if(indice >= videos.length){
-            indice = 0;
+// YouTube llama a esta función cuando la API está lista
+function onYouTubeIframeAPIReady() {
+    ytPlayer = new YT.Player("videoPromo", {
+        width: "300",
+        height: "360",
+        videoId: VIDEOS_YOUTUBE[0],
+        playerVars: {
+            autoplay: 1,
+            mute: 1,
+            controls: 1,
+            rel: 0,
+            modestbranding: 1,
+            playsinline: 1
+        },
+        events: {
+            onStateChange: function(event) {
+                // Cuando el video termina (estado 0), pasa al siguiente
+                if (event.data === YT.PlayerState.ENDED) {
+                    indiceVideo = (indiceVideo + 1) % VIDEOS_YOUTUBE.length;
+                    ytPlayer.loadVideoById(VIDEOS_YOUTUBE[indiceVideo]);
+                }
+            }
         }
-
-        reproductor.src = videos[indice];
-        reproductor.load();
-        reproductor.play();
-
     });
-
 }
 
 function normalizar(txt){
