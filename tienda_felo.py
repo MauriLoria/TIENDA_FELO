@@ -255,9 +255,18 @@ def cargar_catalogo() -> list[dict]:
 
         fijo  = float(oferta.get("FIJO") or 0)
         promo = float(oferta.get("PROMO") or 0)
-        bonif = float(oferta.get("BONIF") or 0)
-        bulto_oferta = float(oferta.get("BULTO") or 0)
         pago  = float(oferta.get("PAGO") or 0)
+
+        # DESCAN="S" habilita bonificación por cantidad para mayoristas
+        descan = str(reg.get("DESCAN") or "").strip().upper()
+
+        # Minorista: bonifcant/bulto siempre disponibles (se muestran si bonifcant < 1)
+        bonifcant    = float(reg["BONIFCANT"] or 0)
+        bulto        = float(reg["CANTMAY"] or 0)
+
+        # Mayorista: bonif/bulto_oferta solo si DESCAN == "S"
+        bonif        = float(oferta.get("BONIF") or 0) if descan == "S" else 0
+        bulto_oferta = float(oferta.get("BULTO") or 0) if descan == "S" else 0
 
         precio_may_mostrar = precio_may
 
@@ -275,8 +284,8 @@ def cargar_catalogo() -> list[dict]:
             "dolar":     es_dolar,
             "val_unid":  val_unid,
             "unid":      str(reg["UNIDAD"]).strip(),
-            "bulto":     float(reg["CANTMAY"] or 0),
-            "bonifcant": float(reg["BONIFCANT"] or 0),
+            "bulto":     bulto,
+            "bonifcant": bonifcant,
             "fijo":      fijo,
             "promo":     promo,
             "bonif":     bonif,
@@ -430,6 +439,7 @@ def crear_acceso():
 
 # ── Archivos estáticos ──────────────────────
 @app.route("/imagenes/<path:nombre>")
+@app.route("/Imagenes/<path:nombre>")
 def servir_imagen(nombre):
     # max_age=86400 → el browser guarda la imagen 24 hs sin volver a pedirla
     # Reduce significativamente el consumo de ancho de banda en Render
