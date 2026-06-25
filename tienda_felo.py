@@ -805,6 +805,14 @@ def inicio():
         "O5y82FpWJE0", # ID video 8
         "NiLcpsaW584", # ID video 9
         "r14Sr9BniGk", # ID video 10
+        "AIzMeKa78M0", # ID video 11
+        "uFgVdvTU1V8", # ID video 12
+        "wLCO-19vkfM", # ID video 13
+        "5uE-E8pguZI", # ID video 14
+        "aq80gEBHsbg", # ID video 15
+        "5Hd4W1p_geI", # ID video 16
+        "hm4Wonl8sAs", # ID video 17
+        "wAtsO_YGldo", # ID video 18
     ]
 
     catalogo_con_imagen = [
