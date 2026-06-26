@@ -291,7 +291,9 @@ def cargar_catalogo() -> list[dict]:
             "bonif":     bonif,
             "bulto_oferta": bulto_oferta,
             "pago":      pago,
-            "detalle":   str(oferta.get("DETALLE") or "").strip()}
+            "detalle":   str(oferta.get("DETALLE") or "").strip(),
+            "iva":       iva,
+            "ivaesp":    ivaesp}
         catalogo.append(articulo)
 
     return catalogo
@@ -813,6 +815,11 @@ def inicio():
         "5Hd4W1p_geI", # ID video 16
         "hm4Wonl8sAs", # ID video 17
         "wAtsO_YGldo", # ID video 18
+        "Vp8_6NML6eg", # ID video 19
+        "XsGPZE1R_5c", # ID video 20
+        "yG2P22PIMcI", # ID video 21
+        "rapo9RSqHYI", # ID video 22
+        "xYYcvNxoqlU", # ID video 23
     ]
 
     catalogo_con_imagen = [

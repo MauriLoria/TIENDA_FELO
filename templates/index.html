@@ -786,10 +786,19 @@ body{
      data-codigo="{{ p.codigo }}"
      data-nombre="{{ p.nombre }}">
 
-    <img
-        src="/imagenes/{{ p.codigo }}.webp"
-        onerror="this.src='/imagenes/sin_imagen.webp'"
-        alt="{{ p.nombre }}">
+    <div style="display:flex;align-items:flex-end;margin-bottom:10px;">
+        <img
+            src="/imagenes/{{ p.codigo }}.webp"
+            onerror="this.src='/imagenes/sin_imagen.webp'"
+            alt="{{ p.nombre }}"
+            style="width:120px;height:120px;object-fit:contain;display:block;flex-shrink:0;">
+        {% if p.iva %}
+        <span style="display:flex;align-items:center;justify-content:center;width:28px;
+            height:28px;border-radius:50%;background:#f0f0f0;border:1px solid #888;
+            font-size:9px;font-weight:bold;color:#222;line-height:1;
+            margin-left:8px;flex-shrink:0;text-align:center;">{{ p.iva|int if p.iva == p.iva|int else "%.2f"|format(p.iva) }}%</span>
+        {% endif %}
+    </div>
 
     <div class="producto-info">
 
@@ -805,8 +814,11 @@ body{
             PRECIO ESPECIAL
         </div>
         {% else %}
-        <div class="precio">
-            $ {{ "{:,.2f}".format(p.precio) }}
+        <div class="precio" style="display:flex;align-items:baseline;justify-content:center;gap:4px;">
+            <span>$ {{ "{:,.2f}".format(p.precio) }}</span>
+            {% if p.ivaesp %}
+            <span style="font-size:11px;font-weight:normal;color:#888;margin-left:6px;">({{ p.ivaesp }})</span>
+            {% endif %}
         </div>
         {% endif %}
 
@@ -1323,13 +1335,6 @@ function onYouTubeIframeAPIReady() {
     });
 }
 
-function normalizar(txt){
-    return (txt || "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
-}
-
 function formatearNumero(valor){
 
     valor = Number(valor);
@@ -1346,6 +1351,11 @@ function normalizar(txt){
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
+}
+
+function formatearIva(valor){
+    valor = Number(valor);
+    return Number.isInteger(valor) ? String(valor) : valor.toFixed(2);
 }
 
 async function filtrarProductos(){
@@ -1416,8 +1426,12 @@ async function filtrarProductos(){
             data-codigo="${p.codigo}"
             data-nombre="${p.nombre}">
 
-            <img src="/imagenes/${p.codigo}.webp"
-                onerror="this.src='/imagenes/sin_imagen.webp'">
+            <div style="display:flex;align-items:flex-end;margin-bottom:10px;">
+                <img src="/imagenes/${p.codigo}.webp"
+                    onerror="this.src='/imagenes/sin_imagen.webp'"
+                    style="width:180px;height:130px;object-fit:contain;display:block;flex-shrink:0;">
+                ${p.iva ? `<span style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#f0f0f0;border:1px solid #888;font-size:9px;font-weight:bold;color:#222;line-height:1;margin-left:8px;flex-shrink:0;text-align:center;">${formatearIva(p.iva)}%</span>` : ""}
+            </div>
 
             <div class="producto-info">
 
@@ -1425,8 +1439,9 @@ async function filtrarProductos(){
 
                 <div class="nombre">${p.nombre}</div>
 
-                <div class="precio">
-                    $ ${p.precio.toFixed(2)}
+                <div class="precio" style="display:flex;align-items:baseline;justify-content:center;gap:4px;">
+                    <span>$ ${p.precio.toFixed(2)}</span>
+                    ${p.ivaesp ? `<span style="font-size:11px;font-weight:normal;color:#888;margin-left:6px;">(${p.ivaesp})</span>` : ""}
                 </div>
 
                 ${htmlPromo}
