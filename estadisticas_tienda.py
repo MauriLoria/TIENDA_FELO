@@ -687,6 +687,7 @@ class AppEstadisticas(tk.Tk):
         contenedor.bind("<Configure>", on_configure)
         canvas.bind("<Configure>", lambda e: canvas.itemconfig(win_id, width=e.width))
         canvas.bind("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
+        contenedor._canvas = canvas
         return contenedor
 
     # ── Carga y refresco ─────────────────────────────────────────────────────
@@ -756,6 +757,9 @@ class AppEstadisticas(tk.Tk):
     def _limpiar(self, tab):
         for w in tab.winfo_children():
             w.destroy()
+        # Volver al tope del scroll
+        if hasattr(tab, "_canvas"):
+            tab._canvas.yview_moveto(0)
 
     def _seccion(self, parent, titulo):
         f = tk.Frame(parent, bg=COLOR_FONDO)
@@ -951,16 +955,34 @@ class AppEstadisticas(tk.Tk):
 
     def sincronizar_drive(self):
         """Descarga los archivos frescos desde Google Drive y recarga las estadísticas."""
+        # ── Mostrar overlay de espera ────────────────────────────────────────
+        overlay = tk.Toplevel(self)
+        overlay.overrideredirect(True)   # sin bordes ni barra de título
+        overlay.attributes("-topmost", True)
+        overlay.configure(bg="#1B6CA8")
+        ancho, alto = 340, 90
+        x = self.winfo_x() + (self.winfo_width()  - ancho) // 2
+        y = self.winfo_y() + (self.winfo_height() - alto)  // 2
+        overlay.geometry(f"{ancho}x{alto}+{x}+{y}")
+        tk.Label(overlay, text="☁  Sincronizando con Google Drive...",
+                 bg="#1B6CA8", fg="white",
+                 font=("Arial", 12, "bold")).pack(expand=True, pady=16)
+        tk.Label(overlay, text="Por favor esperá, se están descargando los datos.",
+                 bg="#1B6CA8", fg="#cce0f5",
+                 font=("Arial", 9)).pack()
         self.barra_estado.config(text="  Sincronizando con Google Drive...")
-        self.update_idletasks()
+        overlay.update()
+        # ────────────────────────────────────────────────────────────────────
         try:
             descargados = drive.descargar_todos(CARPETA_SYNC)
             self.cargar()
+            overlay.destroy()
             self.barra_estado.config(
                 text=f"  ✓ Sincronización completa — {len(descargados)} archivos descargados "
                      f"[{datetime.now().strftime('%H:%M:%S')}]"
             )
         except Exception as e:
+            overlay.destroy()
             messagebox.showerror("Error de sincronización",
                                  f"No se pudo conectar con Google Drive:\n\n{e}")
             self.barra_estado.config(text="  Error al sincronizar con Drive.")
