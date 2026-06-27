@@ -4,7 +4,7 @@ import random
 from dbfread import DBF
 import smtplib
 from email.mime.text import MIMEText
-from datetime import datetime
+from datetime import datetime, date
 
 # ── Google Drive ──────────────────────────────────────────────────────────────
 try:
@@ -13,7 +13,7 @@ try:
     print("[Tienda] Google Drive habilitado.")
 except ImportError:
     USAR_DRIVE = False
-    print("[Tienda] drive_manager no encontrado — usando archivos locales."), date
+    print("[Tienda] drive_manager no encontrado — usando archivos locales.")
 from pathlib import Path
 import traceback
 import json
