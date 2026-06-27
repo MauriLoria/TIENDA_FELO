@@ -4,7 +4,16 @@ import random
 from dbfread import DBF
 import smtplib
 from email.mime.text import MIMEText
-from datetime import datetime, date
+from datetime import datetime
+
+# ── Google Drive ──────────────────────────────────────────────────────────────
+try:
+    import drive_manager as drive
+    USAR_DRIVE = True
+    print("[Tienda] Google Drive habilitado.")
+except ImportError:
+    USAR_DRIVE = False
+    print("[Tienda] drive_manager no encontrado — usando archivos locales."), date
 from pathlib import Path
 import traceback
 import json
@@ -40,19 +49,41 @@ CATALOGO: list[dict] = []
 CATALOGO_POR_CODIGO: dict[str, dict] = {}   # para validar precios en el servidor
 _OFERTAS: dict[str, object] = {}
 
-def registrar_busqueda(texto, resultados):
+def registrar_busqueda(texto, resultados, numero_cliente=0, tipo="minorista"):
+    fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    linea = f"{fecha};{numero_cliente};{tipo};{texto};{resultados}"
+    if USAR_DRIVE:
+        drive.agregar_linea("logs_busquedas.txt", linea)
+    else:
+        with open("logs_busquedas.txt", "a", encoding="utf-8") as f:
+            f.write(linea + "\n")
 
-    with open(
-        "logs_busquedas.txt",
-        "a",
-        encoding="utf-8"
-    ) as f:
+def registrar_carrito(codigo, nombre, cantidad, precio, numero_cliente=0, tipo="minorista"):
+    fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    linea = f"{fecha};{numero_cliente};{tipo};{codigo};{nombre};{cantidad};{precio:.2f}"
+    if USAR_DRIVE:
+        drive.agregar_linea("logs_carrito.txt", linea)
+    else:
+        with open("logs_carrito.txt", "a", encoding="utf-8") as f:
+            f.write(linea + "\n")
 
-        fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+def registrar_producto_visto(codigo, nombre, numero_cliente=0, tipo="minorista"):
+    fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    linea = f"{fecha};{numero_cliente};{tipo};{codigo};{nombre}"
+    if USAR_DRIVE:
+        drive.agregar_linea("logs_productos.txt", linea)
+    else:
+        with open("logs_productos.txt", "a", encoding="utf-8") as f:
+            f.write(linea + "\n")
 
-        f.write(
-            f"{fecha};{texto};{resultados}\n"
-        )
+def registrar_sesion(evento, numero_cliente, nombre_cliente, tipo):
+    fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    linea = f"{fecha};{evento};{numero_cliente};{nombre_cliente};{tipo}"
+    if USAR_DRIVE:
+        drive.agregar_linea("logs_sesiones.txt", linea)
+    else:
+        with open("logs_sesiones.txt", "a", encoding="utf-8") as f:
+            f.write(linea + "\n")
 
 def cargar_ofertas():
 
@@ -181,36 +212,23 @@ USUARIOS_JSON = "usuarios.json"
 
 
 def cargar_usuarios():
-
     try:
-
-        with open(
-            USUARIOS_JSON,
-            "r",
-            encoding="utf-8"
-        ) as f:
-
-            return json.load(f)
-
+        if USAR_DRIVE:
+            contenido = drive.leer_archivo(USUARIOS_JSON)
+            return json.loads(contenido) if contenido.strip() else {}
+        else:
+            with open(USUARIOS_JSON, "r", encoding="utf-8") as f:
+                return json.load(f)
     except:
-
         return {}
 
 
 def guardar_usuarios(datos):
-
-    with open(
-        USUARIOS_JSON,
-        "w",
-        encoding="utf-8"
-    ) as f:
-
-        json.dump(
-            datos,
-            f,
-            indent=4,
-            ensure_ascii=False
-        )
+    if USAR_DRIVE:
+        drive.escribir_archivo(USUARIOS_JSON, json.dumps(datos, indent=4, ensure_ascii=False))
+    else:
+        with open(USUARIOS_JSON, "w", encoding="utf-8") as f:
+            json.dump(datos, f, indent=4, ensure_ascii=False)
 
 
 # ─────────────────────────────────────────────
@@ -363,13 +381,24 @@ def login():
         session["tipo"] = "mayorista"
     else:
         session["tipo"] = "minorista"
+
+    registrar_sesion(
+        "login",
+        int(cliente["NUMERO"]),
+        str(cliente["NOMBRE"]).strip(),
+        session["tipo"]
+    )
     return redirect("/")
 
 @app.route("/logout")
 def logout():
-
+    registrar_sesion(
+        "logout",
+        session.get("numero_cliente", 0),
+        session.get("nombre", ""),
+        session.get("tipo", "minorista")
+    )
     session.clear()
-
     return redirect("/")
 
 @app.route("/primer_ingreso")
@@ -530,9 +559,40 @@ def buscar():
 
         resultados.append(prod)
 
-    registrar_busqueda( texto, len(resultados))
+    registrar_busqueda(
+        texto,
+        len(resultados),
+        numero_cliente=session.get("numero_cliente", 0),
+        tipo=session.get("tipo", "minorista")
+    )
 
     return jsonify(resultados[:100])
+
+# ── Log carrito ─────────────────────────────
+@app.route("/log_carrito", methods=["POST"])
+def log_carrito():
+    datos = request.get_json(force=True)
+    registrar_carrito(
+        codigo=datos.get("codigo", ""),
+        nombre=datos.get("nombre", ""),
+        cantidad=float(datos.get("cantidad", 1)),
+        precio=float(datos.get("precio", 0)),
+        numero_cliente=session.get("numero_cliente", 0),
+        tipo=session.get("tipo", "minorista")
+    )
+    return jsonify({"ok": True})
+
+# ── Log producto visto ───────────────────────
+@app.route("/log_producto", methods=["POST"])
+def log_producto():
+    datos = request.get_json(force=True)
+    registrar_producto_visto(
+        codigo=datos.get("codigo", ""),
+        nombre=datos.get("nombre", ""),
+        numero_cliente=session.get("numero_cliente", 0),
+        tipo=session.get("tipo", "minorista")
+    )
+    return jsonify({"ok": True})
 
 # ── Pedido ──────────────────────────────────
 @app.route("/enviar_pedido", methods=["POST"])
@@ -651,11 +711,18 @@ def enviar_pedido():
 
             total += subtotal
 
-        with open("logs_pedidos.txt","a", encoding="utf-8") as f:
-
-            fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-            f.write(f"{fecha};{numero_pedido};{email};"f"{len(items_validados)};{total:.2f}\n")
+        numero_cliente_log = session.get("numero_cliente", 0)
+        tipo_log = session.get("tipo", "minorista")
+        linea_pedido = (
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')};"
+            f"{numero_pedido};{numero_cliente_log};{email};"
+            f"{tipo_log};{len(items_validados)};{total:.2f}"
+        )
+        if USAR_DRIVE:
+            drive.agregar_linea("logs_pedidos.txt", linea_pedido)
+        else:
+            with open("logs_pedidos.txt", "a", encoding="utf-8") as f:
+                f.write(linea_pedido + "\n")
 
             # PROMO/DETALLE: solo si el cliente tildó el checkbox "Promo" en el carrito
             promo_txt = ""
