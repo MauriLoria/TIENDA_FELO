@@ -412,7 +412,7 @@ def primer_ingreso():
         mensaje=""
     )
 
-@app.route("/_acceso", methods=["POST"])
+@app.route("/crear_acceso", methods=["POST"])
 def crear_acceso():
 
     documento = request.form["documento"]
