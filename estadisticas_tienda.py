@@ -31,7 +31,15 @@ except ImportError:
     USAR_DRIVE = False
 
 # Carpeta local donde se sincronizan los archivos de Drive
-CARPETA_SYNC = Path(tempfile.gettempdir()) / "felo_stats_sync"
+# Carpeta de sincronización — siempre en la misma ubicación fija.
+# Si el .exe está en TIENDA_FELO/dist/, sube un nivel para quedar en TIENDA_FELO/.
+# Si es el .py, usa su propia carpeta.
+import sys as _sys
+if getattr(_sys, "frozen", False):
+    _base = Path(_sys.executable).parent.parent  # dist/ -> TIENDA_FELO/
+else:
+    _base = Path(__file__).parent                # junto al .py
+CARPETA_SYNC = _base / "felo_stats_sync"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIGURACIÓN DE RUTAS
@@ -658,12 +666,13 @@ class AppEstadisticas(tk.Tk):
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill="both", expand=True, padx=0, pady=0)
 
-        self.tab_resumen   = self._nueva_tab("Resumen")
-        self.tab_pedidos   = self._nueva_tab("Pedidos por mes")
-        self.tab_clientes  = self._nueva_tab("Top clientes")
-        self.tab_busquedas = self._nueva_tab("Búsquedas")
-        self.tab_carrito   = self._nueva_tab("Carrito")
-        self.tab_productos = self._nueva_tab("Productos vistos")
+        self.tab_resumen    = self._nueva_tab("Resumen")
+        self.tab_pedidos    = self._nueva_tab("Pedidos por mes")
+        self.tab_clientes   = self._nueva_tab("Top clientes")
+        self.tab_busquedas  = self._nueva_tab("Búsquedas")
+        self.tab_carrito    = self._nueva_tab("Carrito")
+        self.tab_productos  = self._nueva_tab("Productos vistos")
+        self.tab_registrados = self._nueva_tab("Clientes registrados")
 
         # ── Barra de estado ──────────────────────────────────────────────────
         self.barra_estado = tk.Label(self, text="Cargando...",
@@ -751,6 +760,7 @@ class AppEstadisticas(tk.Tk):
         self._poblar_busquedas()
         self._poblar_carrito()
         self._poblar_productos()
+        self._poblar_registrados()
 
     # ── Helpers de widgets ───────────────────────────────────────────────────
 
@@ -953,6 +963,185 @@ class AppEstadisticas(tk.Tk):
                     ["#", "Código", "Producto", "Consultas"],
                     filas, anchos=[3, 14, 50, 12])
 
+
+    def _poblar_registrados(self):
+        self._limpiar(self.tab_registrados)
+        self._seccion(self.tab_registrados, "Clientes registrados")
+
+        # ── Selector de período de actividad ────────────────────────────────
+        ctrl = tk.Frame(self.tab_registrados, bg=COLOR_FONDO)
+        ctrl.pack(fill="x", padx=16, pady=(4, 8))
+
+        tk.Label(ctrl, text="Considerar activo si tuvo sesión en los últimos:",
+                 bg=COLOR_FONDO, fg=COLOR_TEXTO, font=("Arial", 9)).pack(side="left")
+
+        self._periodo_registrados = getattr(self, "_periodo_registrados", tk.StringVar(value="semana"))
+
+        for txt, val in [("Hoy", "dia"), ("Esta semana", "semana"), ("Este mes", "mes")]:
+            tk.Radiobutton(ctrl, text=txt, variable=self._periodo_registrados,
+                           value=val, bg=COLOR_FONDO, fg=COLOR_TEXTO,
+                           font=("Arial", 9), activebackground=COLOR_FONDO,
+                           cursor="hand2",
+                           command=self._poblar_registrados).pack(side="left", padx=8)
+
+        # ── Calcular activos según período ───────────────────────────────────
+        ahora   = datetime.now()
+        periodo = self._periodo_registrados.get()
+        if periodo == "dia":
+            desde = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
+            label_periodo = "hoy"
+        elif periodo == "semana":
+            desde = ahora - __import__("datetime").timedelta(days=7)
+            label_periodo = "últimos 7 días"
+        else:
+            desde = ahora - __import__("datetime").timedelta(days=30)
+            label_periodo = "últimos 30 días"
+
+        sesiones = self.datos.get("sesiones", [])
+        pedidos  = self.datos.get("pedidos",  [])
+        usuarios = self.datos.get("usuarios", {})
+
+        # Clientes con login reciente
+        activos_recientes = {
+            s["nro_cli"]
+            for s in sesiones
+            if s["evento"] == "login" and s["fecha"] >= desde
+        }
+
+        # Mapa nro_cliente → último login
+        ultimo_login = {}
+        for s in sesiones:
+            if s["evento"] == "login":
+                nro = s["nro_cli"]
+                if nro not in ultimo_login or s["fecha"] > ultimo_login[nro]:
+                    ultimo_login[nro] = s["fecha"]
+
+        # Total pedidos por cliente
+        pedidos_por_cliente = {}
+        monto_por_cliente   = {}
+        for p in pedidos:
+            k = p["nro_cli"]
+            pedidos_por_cliente[k] = pedidos_por_cliente.get(k, 0) + 1
+            monto_por_cliente[k]   = monto_por_cliente.get(k, 0) + p["total"]
+
+        # ── KPIs ─────────────────────────────────────────────────────────────
+        total_reg = len(usuarios)
+        n_activos = sum(1 for v in usuarios.values()
+                        if int(v.get("numero_cliente", 0)) in activos_recientes)
+        n_inactivos = total_reg - n_activos
+
+        self._kpi_fila(self.tab_registrados, [
+            ("Total registrados",          f"{total_reg}",    COLOR_ACENTO),
+            (f"Activos ({label_periodo})",  f"{n_activos}",   COLOR_ACENTO2),
+            ("Sin actividad reciente",      f"{n_inactivos}", COLOR_WARN),
+        ])
+
+        # ── Tabla de clientes ─────────────────────────────────────────────────
+        # Ajustá estos anchos (en caracteres) hasta que quede bien:
+        # Anchos en PÍXELES — ahora sí se respetan exactamente.
+        # Ajustá estos valores hasta que quede como querés:
+        COL_W = {
+            "estado":  90,   # "● Activo" / "○ Inactivo"
+            "nro":     80,   # número de cliente
+            "email":  220,   # email
+            "wsp":    110,   # whatsapp  (ej: 2317-508457)
+            "login":  140,   # último login (ej: 27/06/2026 13:25)
+            "peds":    70,   # pedidos
+            "monto":  130,   # total facturado
+        }
+
+        wrap = tk.Frame(self.tab_registrados, bg=COLOR_FONDO)
+        wrap.pack(fill="x", padx=16, pady=(12, 16))
+
+        # Alineación por columna: "w"=izquierda, "center"=centro, "e"=derecha
+        COL_ANCHOR = {
+            "estado": "center",
+            "nro":    "center",
+            "email":  "w",
+            "wsp":    "center",
+            "login":  "center",
+            "peds":   "e",
+            "monto":  "e",
+        }
+        # padx derecho extra para columnas alineadas a la derecha
+        COL_PADX = {
+            "estado": (4, 4),
+            "nro":    (4, 4),
+            "email":  (4, 4),
+            "wsp":    (4, 4),
+            "login":  (4, 4),
+            "peds":   (4, 12),
+            "monto":  (4, 12),
+        }
+
+        def _fila_tabla(parent, bg, textos_colores_fonts):
+            """Dibuja una fila — cada celda en un Frame de ancho fijo en píxeles."""
+            fila = tk.Frame(parent, bg=bg)
+            fila.pack(fill="x")
+            claves = list(COL_W.keys())
+            for i, (txt, fg, font) in enumerate(textos_colores_fonts):
+                clave = claves[i]
+                celda = tk.Frame(fila, bg=bg, width=COL_W[clave], height=24)
+                celda.pack(side="left")
+                celda.pack_propagate(False)
+                tk.Label(celda, text=txt, bg=bg, fg=fg, font=font,
+                         anchor=COL_ANCHOR[clave],
+                         padx=COL_PADX[clave][0]).pack(fill="both", expand=True,
+                         padx=COL_PADX[clave])
+            return fila
+
+        # Encabezado
+        enc_datos = [
+            ("Estado",          COLOR_CABECERA_T, ("Arial", 8, "bold")),
+            ("Nro cliente",     COLOR_CABECERA_T, ("Arial", 8, "bold")),
+            ("Email",           COLOR_CABECERA_T, ("Arial", 8, "bold")),
+            ("WhatsApp",        COLOR_CABECERA_T, ("Arial", 8, "bold")),
+            ("Último login",    COLOR_CABECERA_T, ("Arial", 8, "bold")),
+            ("Pedidos",         COLOR_CABECERA_T, ("Arial", 8, "bold")),
+            ("Total facturado", COLOR_CABECERA_T, ("Arial", 8, "bold")),
+        ]
+        _fila_tabla(wrap, COLOR_CABECERA, enc_datos)
+
+        # Cuerpo
+        tabla_frame = tk.Frame(wrap, bg=COLOR_PANEL,
+                               highlightbackground=COLOR_BORDE, highlightthickness=1)
+        tabla_frame.pack(fill="x")
+
+        filas_data = []
+        for cuit, info in usuarios.items():
+            nro     = int(info.get("numero_cliente", 0))
+            activo  = nro in activos_recientes
+            ult     = ultimo_login.get(nro)
+            ult_str = ult.strftime("%d/%m/%Y %H:%M") if ult else "Sin registro"
+            peds    = pedidos_por_cliente.get(nro, 0)
+            monto   = monto_por_cliente.get(nro, 0)
+            filas_data.append((activo, nro, info.get("email",""), info.get("whatsapp",""),
+                               ult_str, peds, monto))
+
+        filas_data.sort(key=lambda x: (not x[0], x[1]))
+
+        if not filas_data:
+            tk.Label(tabla_frame, text="No hay clientes registrados.",
+                     bg=COLOR_PANEL, fg=COLOR_MUTED,
+                     font=("Arial", 9, "italic"), pady=12).pack()
+        else:
+            for r, (activo, nro, email, wsp, ult_str, peds, monto) in enumerate(filas_data):
+                bg         = "#E8F5E9" if activo else (COLOR_FILA_PAR if r % 2 == 0 else COLOR_PANEL)
+                estado_txt = "● Activo"  if activo else "○ Inactivo"
+                estado_col = "#2E7D32"   if activo else COLOR_MUTED
+
+                celdas = [
+                    (estado_txt,                         estado_col,  ("Arial", 8, "bold")),
+                    (str(nro),                           COLOR_TEXTO, ("Arial", 8)),
+                    (email[:28],                         COLOR_TEXTO, ("Arial", 8)),
+                    (wsp,                                COLOR_TEXTO, ("Arial", 8)),
+                    (ult_str,                            COLOR_TEXTO, ("Arial", 8)),
+                    (str(peds),                          COLOR_TEXTO, ("Arial", 8)),
+                    (f"${monto:,.0f}".replace(",", "."), COLOR_TEXTO, ("Arial", 8)),
+                ]
+                _fila_tabla(tabla_frame, bg, celdas)
+                tk.Frame(tabla_frame, bg=COLOR_BORDE, height=1).pack(fill="x")
+
     def sincronizar_drive(self):
         """Descarga los archivos frescos desde Google Drive y recarga las estadísticas."""
         # ── Mostrar overlay de espera ────────────────────────────────────────
@@ -974,13 +1163,19 @@ class AppEstadisticas(tk.Tk):
         overlay.update()
         # ────────────────────────────────────────────────────────────────────
         try:
-            descargados = drive.descargar_todos(CARPETA_SYNC)
-            self.cargar()
+            errores = []
+            descargados = drive.descargar_todos(CARPETA_SYNC, errores)
             overlay.destroy()
-            self.barra_estado.config(
-                text=f"  ✓ Sincronización completa — {len(descargados)} archivos descargados "
-                     f"[{datetime.now().strftime('%H:%M:%S')}]"
-            )
+            if errores:
+                messagebox.showerror("Error de sincronización",
+                                     f"Problema al conectar con Drive:\n\n{errores[0]}")
+                self.barra_estado.config(text="  Error al sincronizar con Drive.")
+            else:
+                self.cargar()
+                self.barra_estado.config(
+                    text=f"  ✓ Sincronización completa — {len(descargados)} archivos "
+                         f"[{datetime.now().strftime('%H:%M:%S')}]"
+                )
         except Exception as e:
             overlay.destroy()
             messagebox.showerror("Error de sincronización",

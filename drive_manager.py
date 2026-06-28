@@ -37,11 +37,21 @@ def _get_service():
     if creds_json:
         info = json.loads(creds_json)
     else:
-        ruta = Path(__file__).parent / "credentials_drive.json"
+        # Cuando corre como .exe (PyInstaller), sys.executable apunta al .exe.
+        # Cuando corre como .py normal, usamos la carpeta del script.
+        import sys
+        if getattr(sys, "frozen", False):
+            # Ejecutable PyInstaller — buscar junto al .exe
+            base = Path(sys.executable).parent
+        else:
+            # Script Python normal — buscar junto al .py
+            base = Path(__file__).parent
+
+        ruta = base / "credentials_drive.json"
         if not ruta.exists():
             raise FileNotFoundError(
-                "No se encontró credentials_drive.json ni la variable "
-                "de entorno GOOGLE_CREDENTIALS."
+                f"No se encontró credentials_drive.json en:\n{ruta}\n\n"
+                "Copiá el archivo junto al ejecutable."
             )
         with open(ruta, encoding="utf-8") as f:
             info = json.load(f)
@@ -130,16 +140,32 @@ def agregar_linea(nombre, linea):
     escribir_archivo(nombre, nuevo_contenido)
 
 
-def descargar_todos(carpeta_local):
-    """Descarga todos los archivos de Drive a una carpeta local."""
+def descargar_todos(carpeta_local, errores=None):
+    """
+    Descarga todos los archivos de Drive a una carpeta local.
+    Si algo falla, agrega el error a la lista `errores` (si se pasa).
+    """
     carpeta_local = Path(carpeta_local)
     carpeta_local.mkdir(parents=True, exist_ok=True)
     descargados = []
+    try:
+        # Probar conexión antes de descargar
+        service = _get_service()
+    except Exception as e:
+        msg = str(e)
+        print(f"[Drive] Error de conexión: {msg}")
+        if errores is not None:
+            errores.append(msg)
+        return descargados
+
     for nombre in ARCHIVOS:
-        contenido = leer_archivo(nombre)
-        ruta = carpeta_local / nombre
-        with open(ruta, "w", encoding="utf-8") as f:
-            f.write(contenido)
-        descargados.append(nombre)
-        print(f"[Drive] Descargado: {nombre} ({len(contenido)} chars)")
+        try:
+            contenido = leer_archivo(nombre)
+            ruta = carpeta_local / nombre
+            with open(ruta, "w", encoding="utf-8") as f:
+                f.write(contenido)
+            descargados.append(nombre)
+            print(f"[Drive] Descargado: {nombre} ({len(contenido)} chars)")
+        except Exception as e:
+            print(f"[Drive] Error descargando {nombre}: {e}")
     return descargados

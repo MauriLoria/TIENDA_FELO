@@ -1,10 +1,4 @@
 {
-    "30714007730": {
-        "numero_cliente": 63,
-        "password": "scrypt:32768:8:1$r5Th2qexy92KsiZO$9db26747466a114f75f36ccd0eef1764b49f151d882314e1ffd7f3fdef7a4d0c092c6fa76f1df0c97ef75b0f36d83642beebefb6cee8ccdd7aac8da8650fcc12",
-        "email": "acerosfelo@internueve.com.ar",
-        "whatsapp": "2317507013"
-    },
     "30708602953": {
         "numero_cliente": 2702,
         "password": "scrypt:32768:8:1$siltUSUDm4g6BFqn$8850a6fa7c8a54b9184ea49239fccc7beebf1ec0740c4e5dfc74385d871db08c4f8dba9ed4cf213d1c90e1695300902759df5726e0b70fdcc96e27de9cba8efd",
