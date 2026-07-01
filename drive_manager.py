@@ -3,16 +3,27 @@
 # Módulo compartido para leer y escribir archivos en Google Drive.
 # Usado por tienda_felo.py (escritura) y estadisticas_tienda.py (lectura).
 #
+# IMPORTANTE — Autenticación por OAuth (no Service Account):
+# Las Service Accounts no tienen cuota de almacenamiento propia en Gmail
+# personal, así que las escrituras/actualizaciones fallan con
+# "storageQuotaExceeded". Por eso este módulo se autentica con una cuenta
+# de Gmail real (la tuya), que sí tiene cuota.
+#
+# Antes de usar esto por primera vez, corré UNA SOLA VEZ el script
+# autorizar_drive.py (ver instrucciones dentro de ese archivo). Eso genera
+# oauth_token.json (uso local) o los valores para las variables de entorno
+# OAUTH_CLIENT_ID / OAUTH_CLIENT_SECRET / OAUTH_REFRESH_TOKEN (uso en Render).
+#
 # Requiere: pip install google-api-python-client google-auth
 # ─────────────────────────────────────────────────────────────────────────────
 
 import os
 import io
 import json
-import tempfile
 from pathlib import Path
 
-from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
 
@@ -30,32 +41,53 @@ ARCHIVOS = [
     "usuarios.json",
 ]
 
-# ── Conexión ──────────────────────────────────────────────────────────────────
+# ── Conexión (OAuth con cuenta personal) ───────────────────────────────────────
+
+def _ruta_token_local():
+    import sys
+    if getattr(sys, "frozen", False):
+        # Ejecutable PyInstaller — buscar junto al .exe
+        base = Path(sys.executable).parent
+    else:
+        # Script Python normal — buscar junto al .py
+        base = Path(__file__).parent
+    return base / "oauth_token.json"
+
 
 def _get_service():
-    creds_json = os.environ.get("GOOGLE_CREDENTIALS")
-    if creds_json:
-        info = json.loads(creds_json)
-    else:
-        # Cuando corre como .exe (PyInstaller), sys.executable apunta al .exe.
-        # Cuando corre como .py normal, usamos la carpeta del script.
-        import sys
-        if getattr(sys, "frozen", False):
-            # Ejecutable PyInstaller — buscar junto al .exe
-            base = Path(sys.executable).parent
-        else:
-            # Script Python normal — buscar junto al .py
-            base = Path(__file__).parent
+    client_id     = os.environ.get("OAUTH_CLIENT_ID")
+    client_secret = os.environ.get("OAUTH_CLIENT_SECRET")
+    refresh_token = os.environ.get("OAUTH_REFRESH_TOKEN")
 
-        ruta = base / "credentials_drive.json"
+    if not (client_id and client_secret and refresh_token):
+        # No están en variables de entorno (caso típico: corriendo local) —
+        # buscar el archivo generado por autorizar_drive.py
+        ruta = _ruta_token_local()
         if not ruta.exists():
             raise FileNotFoundError(
-                f"No se encontró credentials_drive.json en:\n{ruta}\n\n"
-                "Copiá el archivo junto al ejecutable."
+                f"No se encontraron credenciales OAuth de Drive.\n"
+                f"Faltan las variables de entorno OAUTH_CLIENT_ID / "
+                f"OAUTH_CLIENT_SECRET / OAUTH_REFRESH_TOKEN, y tampoco existe:\n"
+                f"{ruta}\n\n"
+                "Corré primero 'python autorizar_drive.py' (una sola vez) "
+                "para generar las credenciales."
             )
         with open(ruta, encoding="utf-8") as f:
-            info = json.load(f)
-    creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+            datos = json.load(f)
+        client_id     = datos["client_id"]
+        client_secret = datos["client_secret"]
+        refresh_token = datos["refresh_token"]
+
+    creds = Credentials(
+        token=None,
+        refresh_token=refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=client_id,
+        client_secret=client_secret,
+        scopes=SCOPES,
+    )
+    creds.refresh(Request())
+
     return build("drive", "v3", credentials=creds, cache_discovery=False)
 
 
@@ -104,9 +136,9 @@ def leer_archivo(nombre):
 def escribir_archivo(nombre, contenido):
     """
     Actualiza un archivo existente en Drive con el contenido dado.
-    Si el archivo NO existe, muestra instrucciones para crearlo manualmente.
-    La Service Account no puede crear archivos nuevos (sin cuota propia),
-    pero SÍ puede actualizar archivos que el usuario creó y compartió.
+    Si el archivo NO existe, lo CREA dentro de FOLDER_ID (esto ya es
+    posible porque ahora autenticamos con una cuenta real con cuota,
+    a diferencia del Service Account anterior).
     """
     try:
         service = _get_service()
@@ -124,8 +156,14 @@ def escribir_archivo(nombre, contenido):
                 supportsAllDrives=True
             ).execute()
         else:
-            print(f"[Drive] '{nombre}' no existe en Drive.")
-            print(f"[Drive] Ejecutá: python crear_archivos_drive.py")
+            archivo_nuevo = service.files().create(
+                body={"name": nombre, "parents": [FOLDER_ID]},
+                media_body=media,
+                fields="id",
+                supportsAllDrives=True
+            ).execute()
+            _cache_ids[nombre] = archivo_nuevo["id"]
+            print(f"[Drive] '{nombre}' no existía — se creó en Drive.")
 
     except Exception as e:
         print(f"[Drive] Error escribiendo {nombre}: {e}")

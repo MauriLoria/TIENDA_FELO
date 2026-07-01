@@ -1253,6 +1253,11 @@ function finalizarPedido(){
             item.cantidad + "\n";
     });
 
+    // Se abre la pestaña en blanco YA, de forma síncrona dentro del click,
+    // para que el navegador no la bloquee como popup. Recién cuando llegue
+    // la respuesta del servidor la redirigimos hacia WhatsApp.
+    let ventanaWA = window.open("", "_blank");
+
     fetch("/enviar_pedido",{
 
         method:"POST",
@@ -1274,6 +1279,9 @@ function finalizarPedido(){
         if(data.requiere_login){
             alert(
                 "Debe iniciar sesión para enviar pedidos.");
+            if(ventanaWA){
+                ventanaWA.close();
+            }
             window.location.href = "/login";
             return;}
         if(data.preview){
@@ -1296,9 +1304,21 @@ function finalizarPedido(){
             console.log(data.preview);
             console.log(data.numero_pedido);
 
-            window.location.href = urlWA;
+            if(ventanaWA){
+                ventanaWA.location.href = urlWA;
+            } else {
+                // Si el navegador bloqueó la ventana al abrirla en blanco,
+                // se intenta abrir directamente como último recurso.
+                window.open(urlWA, "_blank");
+            }
             carrito = {};
             actualizarCarrito();
+        } else {
+            // El servidor respondió pero el pedido no se pudo generar
+            // (ok:false) — no tiene sentido abrir WhatsApp, se cierra la pestaña.
+            if(ventanaWA){
+                ventanaWA.close();
+            }
         }
     })
         
@@ -1307,6 +1327,10 @@ function finalizarPedido(){
         alert("Error al enviar el pedido");
 
         console.error(error);
+
+        if(ventanaWA){
+            ventanaWA.close();
+        }
 
     });
 

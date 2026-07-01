@@ -1,1 +1,6 @@
+client_secret.json 
 credentials_drive.json
+oauth_token.json 
+dist/
+build/
+*.spec

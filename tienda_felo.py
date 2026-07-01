@@ -1,6 +1,7 @@
 from flask import (Flask, render_template, send_from_directory, jsonify, request, session, redirect, url_for)
 import os
 import random
+import threading
 from dbfread import DBF
 import smtplib
 from email.mime.text import MIMEText
@@ -14,6 +15,20 @@ try:
 except ImportError:
     USAR_DRIVE = False
     print("[Tienda] drive_manager no encontrado — usando archivos locales.")
+
+def _drive_async(func, *args, **kwargs):
+    """
+    Ejecuta una operación de Drive (lectura+escritura) en un hilo aparte,
+    para que un problema o demora de Google Drive (ej: cuota agotada)
+    NUNCA retrase la respuesta al navegador del cliente.
+    """
+    threading.Thread(
+        target=func,
+        args=args,
+        kwargs=kwargs,
+        daemon=True
+    ).start()
+
 from pathlib import Path
 import traceback
 import json
@@ -53,7 +68,7 @@ def registrar_busqueda(texto, resultados, numero_cliente=0, tipo="minorista"):
     fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     linea = f"{fecha};{numero_cliente};{tipo};{texto};{resultados}"
     if USAR_DRIVE:
-        drive.agregar_linea("logs_busquedas.txt", linea)
+        _drive_async(drive.agregar_linea, "logs_busquedas.txt", linea)
     else:
         with open("logs_busquedas.txt", "a", encoding="utf-8") as f:
             f.write(linea + "\n")
@@ -62,7 +77,7 @@ def registrar_carrito(codigo, nombre, cantidad, precio, numero_cliente=0, tipo="
     fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     linea = f"{fecha};{numero_cliente};{tipo};{codigo};{nombre};{cantidad};{precio:.2f}"
     if USAR_DRIVE:
-        drive.agregar_linea("logs_carrito.txt", linea)
+        _drive_async(drive.agregar_linea, "logs_carrito.txt", linea)
     else:
         with open("logs_carrito.txt", "a", encoding="utf-8") as f:
             f.write(linea + "\n")
@@ -71,7 +86,7 @@ def registrar_producto_visto(codigo, nombre, numero_cliente=0, tipo="minorista")
     fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     linea = f"{fecha};{numero_cliente};{tipo};{codigo};{nombre}"
     if USAR_DRIVE:
-        drive.agregar_linea("logs_productos.txt", linea)
+        _drive_async(drive.agregar_linea, "logs_productos.txt", linea)
     else:
         with open("logs_productos.txt", "a", encoding="utf-8") as f:
             f.write(linea + "\n")
@@ -80,7 +95,7 @@ def registrar_sesion(evento, numero_cliente, nombre_cliente, tipo):
     fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     linea = f"{fecha};{evento};{numero_cliente};{nombre_cliente};{tipo}"
     if USAR_DRIVE:
-        drive.agregar_linea("logs_sesiones.txt", linea)
+        _drive_async(drive.agregar_linea, "logs_sesiones.txt", linea)
     else:
         with open("logs_sesiones.txt", "a", encoding="utf-8") as f:
             f.write(linea + "\n")
@@ -612,7 +627,9 @@ def enviar_pedido():
 
         # Validación básica del request
         if not email:
-            return jsonify({"ok": False, "mensaje": "El email es obligatorio."})
+            # Usuario sin registrar: no se exige email, se identifica
+            # como "Cliente sin registrar" y el pedido sigue por WhatsApp.
+            email = "Cliente Web (sin registrar)"
         if not carrito:
             return jsonify({"ok": False, "mensaje": "El carrito está vacío."})
 
@@ -711,19 +728,6 @@ def enviar_pedido():
 
             total += subtotal
 
-        numero_cliente_log = session.get("numero_cliente", 0)
-        tipo_log = session.get("tipo", "minorista")
-        linea_pedido = (
-            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')};"
-            f"{numero_pedido};{numero_cliente_log};{email};"
-            f"{tipo_log};{len(items_validados)};{total:.2f}"
-        )
-        if USAR_DRIVE:
-            drive.agregar_linea("logs_pedidos.txt", linea_pedido)
-        else:
-            with open("logs_pedidos.txt", "a", encoding="utf-8") as f:
-                f.write(linea_pedido + "\n")
-
             # PROMO/DETALLE: solo si el cliente tildó el checkbox "Promo" en el carrito
             promo_txt = ""
             detalle_txt = ""
@@ -758,6 +762,19 @@ def enviar_pedido():
                 f"{promo_txt:<8}"
                 f"{detalle_txt:<20}"
             )
+
+        numero_cliente_log = session.get("numero_cliente", 0)
+        tipo_log = session.get("tipo", "minorista")
+        linea_pedido = (
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')};"
+            f"{numero_pedido};{numero_cliente_log};{email};"
+            f"{tipo_log};{len(items_validados)};{total:.2f}"
+        )
+        if USAR_DRIVE:
+            _drive_async(drive.agregar_linea, "logs_pedidos.txt", linea_pedido)
+        else:
+            with open("logs_pedidos.txt", "a", encoding="utf-8") as f:
+                f.write(linea_pedido + "\n")
 
         lineas += [SEP, f"{'TOTAL':>66} ${total:>12,.2f}"]
 
