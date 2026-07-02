@@ -5,7 +5,16 @@ import threading
 from dbfread import DBF
 import smtplib
 from email.mime.text import MIMEText
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
+
+# ── Zona horaria Argentina (UTC-3) ──────────────────────────────────────────
+# El servidor de Render corre en UTC, así que datetime.now() da la hora
+# incorrecta. Esta función fuerza siempre la hora de Argentina, sin
+# depender de la configuración del sistema operativo del servidor.
+TZ_ARGENTINA = timezone(timedelta(hours=-3))
+
+def ahora_ar():
+    return datetime.now(TZ_ARGENTINA)
 
 # ── Google Drive ──────────────────────────────────────────────────────────────
 try:
@@ -64,40 +73,56 @@ CATALOGO: list[dict] = []
 CATALOGO_POR_CODIGO: dict[str, dict] = {}   # para validar precios en el servidor
 _OFERTAS: dict[str, object] = {}
 
+def _nombre_log_mensual(base):
+    """
+    Devuelve el nombre de archivo de log correspondiente al mes actual
+    (hora Argentina), ej: 'logs_busquedas_2026_07.txt'.
+    Esto evita que un solo archivo crezca indefinidamente: cada mes se
+    empieza un archivo nuevo, así las lecturas/escrituras a Drive se
+    mantienen rápidas y el dashboard de estadísticas puede filtrar
+    fácilmente por mes.
+    """
+    sufijo = ahora_ar().strftime("%Y_%m")
+    return f"{base}_{sufijo}.txt"
+
 def registrar_busqueda(texto, resultados, numero_cliente=0, tipo="minorista"):
-    fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    fecha = ahora_ar().strftime("%Y-%m-%d %H:%M:%S")
     linea = f"{fecha};{numero_cliente};{tipo};{texto};{resultados}"
+    nombre_archivo = _nombre_log_mensual("logs_busquedas")
     if USAR_DRIVE:
-        _drive_async(drive.agregar_linea, "logs_busquedas.txt", linea)
+        _drive_async(drive.agregar_linea, nombre_archivo, linea)
     else:
-        with open("logs_busquedas.txt", "a", encoding="utf-8") as f:
+        with open(nombre_archivo, "a", encoding="utf-8") as f:
             f.write(linea + "\n")
 
 def registrar_carrito(codigo, nombre, cantidad, precio, numero_cliente=0, tipo="minorista"):
-    fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    fecha = ahora_ar().strftime("%Y-%m-%d %H:%M:%S")
     linea = f"{fecha};{numero_cliente};{tipo};{codigo};{nombre};{cantidad};{precio:.2f}"
+    nombre_archivo = _nombre_log_mensual("logs_carrito")
     if USAR_DRIVE:
-        _drive_async(drive.agregar_linea, "logs_carrito.txt", linea)
+        _drive_async(drive.agregar_linea, nombre_archivo, linea)
     else:
-        with open("logs_carrito.txt", "a", encoding="utf-8") as f:
+        with open(nombre_archivo, "a", encoding="utf-8") as f:
             f.write(linea + "\n")
 
 def registrar_producto_visto(codigo, nombre, numero_cliente=0, tipo="minorista"):
-    fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    fecha = ahora_ar().strftime("%Y-%m-%d %H:%M:%S")
     linea = f"{fecha};{numero_cliente};{tipo};{codigo};{nombre}"
+    nombre_archivo = _nombre_log_mensual("logs_productos")
     if USAR_DRIVE:
-        _drive_async(drive.agregar_linea, "logs_productos.txt", linea)
+        _drive_async(drive.agregar_linea, nombre_archivo, linea)
     else:
-        with open("logs_productos.txt", "a", encoding="utf-8") as f:
+        with open(nombre_archivo, "a", encoding="utf-8") as f:
             f.write(linea + "\n")
 
 def registrar_sesion(evento, numero_cliente, nombre_cliente, tipo):
-    fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    fecha = ahora_ar().strftime("%Y-%m-%d %H:%M:%S")
     linea = f"{fecha};{evento};{numero_cliente};{nombre_cliente};{tipo}"
+    nombre_archivo = _nombre_log_mensual("logs_sesiones")
     if USAR_DRIVE:
-        _drive_async(drive.agregar_linea, "logs_sesiones.txt", linea)
+        _drive_async(drive.agregar_linea, nombre_archivo, linea)
     else:
-        with open("logs_sesiones.txt", "a", encoding="utf-8") as f:
+        with open(nombre_archivo, "a", encoding="utf-8") as f:
             f.write(linea + "\n")
 
 def cargar_ofertas():
@@ -106,7 +131,7 @@ def cargar_ofertas():
 
     _OFERTAS = {}
 
-    hoy = date.today()
+    hoy = ahora_ar().date()
 
     for reg in DBF(OFERTAS_DBF,
                    load=True,
@@ -685,7 +710,7 @@ def enviar_pedido():
             })
 
         numero_pedido = obtener_numero_pedido()
-        fecha_hora    = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        fecha_hora    = ahora_ar().strftime("%d/%m/%Y %H:%M:%S")
 
         # ── Armar cuerpo del email ──────────────────────────────────────────
         # CODIGO(10) DESCRIPCION(35) CANT(6) PRECIO(12) PROMO(8) DETALLE(20) = 91
@@ -766,7 +791,7 @@ def enviar_pedido():
         numero_cliente_log = session.get("numero_cliente", 0)
         tipo_log = session.get("tipo", "minorista")
         linea_pedido = (
-            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')};"
+            f"{ahora_ar().strftime('%Y-%m-%d %H:%M:%S')};"
             f"{numero_pedido};{numero_cliente_log};{email};"
             f"{tipo_log};{len(items_validados)};{total:.2f}"
         )
